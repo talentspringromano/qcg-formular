@@ -97,11 +97,12 @@ const styles = StyleSheet.create({
     marginRight: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
   },
   checkmark: {
-    fontSize: 7,
-    color: '#fff',
+    fontSize: 9,
+    color: '#000',
+    fontFamily: 'Helvetica-Bold',
+    marginTop: -1,
   },
   checkboxLabel: {
     fontSize: 8,
