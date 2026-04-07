@@ -74,6 +74,7 @@ function CheckboxField({ checked, onChange, label }: { checked: boolean; onChang
         )}
       </div>
       <span className="text-sm text-slate-700">{label}</span>
+      <input type="checkbox" className="sr-only" checked={checked} onChange={() => onChange(!checked)} />
     </label>
   );
 }
