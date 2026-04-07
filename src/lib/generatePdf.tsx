@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Svg, Line } from '@react-pdf/renderer';
 import { FormData } from '@/types/form';
 
 const styles = StyleSheet.create({
@@ -87,22 +87,6 @@ const styles = StyleSheet.create({
     height: 10,
     border: '1pt solid #000',
     marginRight: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    width: 10,
-    height: 10,
-    border: '1pt solid #000',
-    marginRight: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    fontSize: 9,
-    color: '#000',
-    fontFamily: 'Helvetica-Bold',
-    marginTop: -1,
   },
   checkboxLabel: {
     fontSize: 8,
@@ -156,8 +140,13 @@ const styles = StyleSheet.create({
 function Checkbox({ checked, label }: { checked: boolean; label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-      <View style={checked ? styles.checkboxChecked : styles.checkbox}>
-        {checked && <Text style={styles.checkmark}>X</Text>}
+      <View style={styles.checkbox}>
+        {checked && (
+          <Svg width="10" height="10" viewBox="0 0 10 10" style={{ position: 'absolute', top: 0, left: 0 }}>
+            <Line x1="1" y1="1" x2="9" y2="9" strokeWidth={1.5} stroke="#000" />
+            <Line x1="9" y1="1" x2="1" y2="9" strokeWidth={1.5} stroke="#000" />
+          </Svg>
+        )}
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
     </View>
