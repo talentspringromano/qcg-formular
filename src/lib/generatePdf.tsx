@@ -87,6 +87,8 @@ const styles = StyleSheet.create({
     height: 10,
     border: '1pt solid #000',
     marginRight: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   checkboxLabel: {
     fontSize: 8,
@@ -142,9 +144,9 @@ function Checkbox({ checked, label }: { checked: boolean; label: string }) {
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
       <View style={styles.checkbox}>
         {checked && (
-          <Svg width="10" height="10" viewBox="0 0 10 10" style={{ position: 'absolute', top: 0, left: 0 }}>
-            <Line x1="1" y1="1" x2="9" y2="9" strokeWidth={1.5} stroke="#000" />
-            <Line x1="9" y1="1" x2="1" y2="9" strokeWidth={1.5} stroke="#000" />
+          <Svg width="8" height="8" viewBox="0 0 8 8">
+            <Line x1="1" y1="1" x2="7" y2="7" strokeWidth={1.2} stroke="#000" />
+            <Line x1="7" y1="1" x2="1" y2="7" strokeWidth={1.2} stroke="#000" />
           </Svg>
         )}
       </View>
