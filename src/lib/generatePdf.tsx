@@ -450,7 +450,7 @@ export function QCGDocument({ data }: { data: FormData }) {
           <View style={styles.row}>
             <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Oblique' }}>Notwendige Qualifizierungsinhalte/-bedarfe:</Text>
           </View>
-          <Text style={[styles.valueWide, { marginBottom: 4, minHeight: 24 }]}>{data.qualifizierungsInhalte}</Text>
+          <Text style={{ fontSize: 9, lineHeight: 1.4, marginBottom: 6 }}>{data.qualifizierungsInhalte}</Text>
 
           <View style={styles.row}>
             <Text style={[styles.boldText, { fontSize: 8.5 }]}>Geplante Weiterbildungsdauer/-zeitraum:</Text>
@@ -462,11 +462,12 @@ export function QCGDocument({ data }: { data: FormData }) {
           </View>
 
           <View style={styles.checkboxRow}>
-            <Checkbox checked={data.weiterbildungDurchTraeger} label="Weiterbildung durch Bildungsträger, Geplanter Bildungsträger (soweit bereits bekannt):" />
+            <Checkbox checked={data.weiterbildungDurchTraeger} label="Weiterbildung durch Bildungsträger" />
           </View>
 
           {data.weiterbildungDurchTraeger && (
             <View style={{ paddingLeft: 20 }}>
+              <FieldRow label="Geplanter Bildungsträger:" value={data.bildungstraeger} />
               <FieldRow label="Anschrift:" value={data.traegerAnschrift} />
               <View style={styles.row}>
                 <Text style={[styles.label, { width: '18%' }]}>Maßnahme Nr.:</Text>
@@ -480,7 +481,9 @@ export function QCGDocument({ data }: { data: FormData }) {
 
         <View style={styles.box}>
           <Text style={styles.boxTitle}>Begründung der Fördernotwendigkeit für den Arbeitnehmer</Text>
-          <Text style={[styles.valueWide, { minHeight: 30 }]}>{data.begruendung}</Text>
+          <Text style={{ fontSize: 9, lineHeight: 1.4, textAlign: 'justify' }}>
+            {data.begruendung}
+          </Text>
         </View>
 
         {/* Datenschutz */}
