@@ -71,7 +71,7 @@ export interface MitarbeiterData {
   // Qualifizierungsvorschlag
   vertical: '' | 'marketing' | 'sales' | 'ki';
   selectedModules: string[];
-  zeitmodell: 'tz' | 'vz';
+  zeitmodell: '' | 'tz' | 'vz';
   qualifizierungsInhalte: string;
   weiterbildungsDauer: string;
   weiterbildungImBetrieb: boolean;
@@ -162,7 +162,7 @@ export function defaultMitarbeiterData(): MitarbeiterData {
     ],
     vertical: '',
     selectedModules: [],
-    zeitmodell: 'tz',
+    zeitmodell: '',
     qualifizierungsInhalte: '',
     weiterbildungsDauer: '',
     weiterbildungImBetrieb: false,

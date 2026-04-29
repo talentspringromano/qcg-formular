@@ -1386,7 +1386,7 @@ export default function Home() {
             const wochen = sel ? (data.zeitmodell === 'tz' ? sel.tzWochen : sel.vzWochen) : 0;
             const isGenerating = !!generatingBegruendung[data.id];
 
-            const sec1Done = !!data.vertical && validCombo;
+            const sec1Done = !!data.vertical && !!data.zeitmodell && validCombo;
             const sec2Done = data.notwendigkeit.length > 0 && data.bezug.length > 0;
             const sec3Done = !!data.begruendung;
             const tab = 3;
@@ -1405,8 +1405,47 @@ export default function Home() {
                   onToggle={() => openSection(tab, 0)}
                   onContinue={() => goToSection(tab, 1)}
                 >
-                  <p className="text-sm text-ink-mute mb-4">Wähle den Schwerpunkt und die Module der Weiterbildung.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-6">
+                  <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-green-800 mb-3">In welchem Format soll die Weiterbildung laufen?</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                    <button
+                      type="button"
+                      onClick={() => update('zeitmodell', 'vz')}
+                      className={`text-left p-5 rounded-[14px] border transition-colors ${
+                        data.zeitmodell === 'vz'
+                          ? 'border-green-800 bg-mint-100'
+                          : 'border-mint-300 bg-white hover:border-green-700 hover:bg-mint-50'
+                      }`}
+                    >
+                      <div className={`font-serif text-lg font-medium ${data.zeitmodell === 'vz' ? 'text-green-900' : 'text-ink'}`}>
+                        {data.zeitmodell === 'vz' && <span className="text-green-800 mr-1">✓</span>}Vollzeit
+                      </div>
+                      <div className="text-sm text-ink-mute mt-1">40 Std./Woche · 50 UE/Woche · schneller Abschluss, intensiver Fokus</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => update('zeitmodell', 'tz')}
+                      className={`text-left p-5 rounded-[14px] border transition-colors ${
+                        data.zeitmodell === 'tz'
+                          ? 'border-green-800 bg-mint-100'
+                          : 'border-mint-300 bg-white hover:border-green-700 hover:bg-mint-50'
+                      }`}
+                    >
+                      <div className={`font-serif text-lg font-medium ${data.zeitmodell === 'tz' ? 'text-green-900' : 'text-ink'}`}>
+                        {data.zeitmodell === 'tz' && <span className="text-green-800 mr-1">✓</span>}Teilzeit
+                      </div>
+                      <div className="text-sm text-ink-mute mt-1">20 Std./Woche · 25 UE/Woche · parallel zum Tagesgeschäft</div>
+                    </button>
+                  </div>
+
+                  {data.zeitmodell ? (
+                    <>
+                      <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-green-800 mb-3">Schwerpunkt & Module</div>
+                      <p className="text-sm text-ink-mute mb-4">Wähle den Schwerpunkt und die Module der Weiterbildung.</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-ink-mute mb-4">Bitte erst ein Format wählen — die Module werden danach passend angezeigt.</p>
+                  )}
+                  <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-6 ${data.zeitmodell ? '' : 'opacity-50 pointer-events-none'}`}>
                     {VERTICALS.map((v) => (
                       <button
                         key={v.key}
