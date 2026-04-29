@@ -59,19 +59,45 @@ export async function POST(req: NextRequest) {
       console.error('[merge-pdfs] formData parse failed:', err);
       return NextResponse.json({ error: 'Invalid form body' }, { status: 400 });
     }
-    const erh = form.get('erhebungsbogenUrl');
-    if (typeof erh === 'string') erhebungsbogenUrl = erh;
 
-    const angebotPdfUrlField = form.get('angebotPdfUrl');
-    if (typeof angebotPdfUrlField === 'string' && angebotPdfUrlField) angebotPdfUrl = angebotPdfUrlField;
+    const allKeys: string[] = [];
+    for (const [k] of form.entries()) allKeys.push(k);
+    console.log('[merge-pdfs] multipart received keys:', allKeys);
 
-    // Accept the file under any common key name (Zapier's "File" field has no
-    // key input — it submits the upload under different default names depending
-    // on UI version: 'file', 'angebotFile', 'attachment', etc.).
-    // Pick the first non-string entry that looks like a Blob/File.
+    // Direct lookups
+    const tryString = (k: string) => {
+      const v = form.get(k);
+      return typeof v === 'string' ? v : null;
+    };
+    erhebungsbogenUrl = tryString('erhebungsbogenUrl');
+    angebotPdfUrl = tryString('angebotPdfUrl');
+    fileName = tryString('fileName') || undefined;
+    const o0 = tryString('order');
+    if (o0 === 'angebot-first' || o0 === 'erhebungsbogen-first') order = o0;
+
+    // Fallback: Zapier sometimes wraps all "Data" fields into one multipart part
+    // named 'data' as a JSON string when a separate File is also sent.
+    if (!erhebungsbogenUrl) {
+      const dataField = tryString('data');
+      if (dataField) {
+        try {
+          const parsed = JSON.parse(dataField) as {
+            erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string;
+          };
+          if (parsed.erhebungsbogenUrl) erhebungsbogenUrl = parsed.erhebungsbogenUrl;
+          if (parsed.angebotPdfUrl && !angebotPdfUrl) angebotPdfUrl = parsed.angebotPdfUrl;
+          if (parsed.fileName && !fileName) fileName = parsed.fileName;
+          if ((parsed.order === 'angebot-first' || parsed.order === 'erhebungsbogen-first') && !order) order = parsed.order;
+        } catch (err) {
+          console.warn('[merge-pdfs] data field is not JSON:', err);
+        }
+      }
+    }
+
+    // Find any binary file part — Zapier's "File" field uses different keys
+    // depending on UI version (file, angebotFile, attachment, …).
     let angebotFileField: FormDataEntryValue | null = null;
-    for (const [key, value] of form.entries()) {
-      void key;
+    for (const [, value] of form.entries()) {
       if (value && typeof value !== 'string') {
         angebotFileField = value;
         break;
@@ -81,11 +107,6 @@ export async function POST(req: NextRequest) {
       const ab = await angebotFileField.arrayBuffer();
       angebotBytesFromForm = new Uint8Array(ab);
     }
-
-    const fn = form.get('fileName');
-    if (typeof fn === 'string') fileName = fn;
-    const o = form.get('order');
-    if (o === 'angebot-first' || o === 'erhebungsbogen-first') order = o;
   } else {
     let body: { erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string };
     try {
@@ -109,6 +130,7 @@ export async function POST(req: NextRequest) {
           gotAngebotPdfUrl: angebotPdfUrl,
           gotAngebotBytes: angebotBytesFromForm ? angebotBytesFromForm.byteLength : 0,
           gotFileName: fileName,
+          hint: 'Server saw multipart/form keys but no erhebungsbogenUrl. See Vercel function logs for the full key list.',
         },
       },
       { status: 400 },
