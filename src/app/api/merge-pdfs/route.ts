@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument } from 'pdf-lib';
+import { ensureTables, getDb } from '@/lib/db';
+import { uploadPdf } from '@/lib/storage';
+import { buildTokenUrl, createFileToken } from '@/lib/fileTokens';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -50,6 +53,8 @@ export async function POST(req: NextRequest) {
   let angebotBytesFromForm: Uint8Array | null = null;
   let fileName: string | undefined;
   let order: 'angebot-first' | 'erhebungsbogen-first' | undefined;
+  let submissionId: string | null = null;
+  let mitarbeiterId: string | null = null;
 
   if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
     let form: FormData;
@@ -72,6 +77,8 @@ export async function POST(req: NextRequest) {
     erhebungsbogenUrl = tryString('erhebungsbogenUrl');
     angebotPdfUrl = tryString('angebotPdfUrl');
     fileName = tryString('fileName') || undefined;
+    submissionId = tryString('submissionId');
+    mitarbeiterId = tryString('mitarbeiterId');
     const o0 = tryString('order');
     if (o0 === 'angebot-first' || o0 === 'erhebungsbogen-first') order = o0;
 
@@ -99,11 +106,27 @@ export async function POST(req: NextRequest) {
           }
         }
         if (parsed) {
-          if (parsed.erhebungsbogenUrl) erhebungsbogenUrl = parsed.erhebungsbogenUrl;
-          if (parsed.angebotPdfUrl && !angebotPdfUrl) angebotPdfUrl = parsed.angebotPdfUrl;
-          if (parsed.fileName && !fileName) fileName = parsed.fileName;
-          if ((parsed.order === 'angebot-first' || parsed.order === 'erhebungsbogen-first') && !order) order = parsed.order;
+          const p = parsed as Record<string, string | undefined>;
+          if (p.erhebungsbogenUrl) erhebungsbogenUrl = p.erhebungsbogenUrl;
+          if (p.angebotPdfUrl && !angebotPdfUrl) angebotPdfUrl = p.angebotPdfUrl;
+          if (p.fileName && !fileName) fileName = p.fileName;
+          if (p.submissionId && !submissionId) submissionId = p.submissionId;
+          if (p.mitarbeiterId && !mitarbeiterId) mitarbeiterId = p.mitarbeiterId;
+          if ((p.order === 'angebot-first' || p.order === 'erhebungsbogen-first') && !order) order = p.order;
         }
+      }
+    }
+    // Also try fallback for submissionId/mitarbeiterId from URL-encoded data
+    if (!submissionId) {
+      const dataField = tryString('data');
+      if (dataField) {
+        try { submissionId = new URLSearchParams(dataField).get('submissionId'); } catch { /* ignore */ }
+      }
+    }
+    if (!mitarbeiterId) {
+      const dataField = tryString('data');
+      if (dataField) {
+        try { mitarbeiterId = new URLSearchParams(dataField).get('mitarbeiterId'); } catch { /* ignore */ }
       }
     }
 
@@ -121,7 +144,7 @@ export async function POST(req: NextRequest) {
       angebotBytesFromForm = new Uint8Array(ab);
     }
   } else {
-    let body: { erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string };
+    let body: { erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string; submissionId?: string; mitarbeiterId?: string };
     try {
       body = await req.json();
     } catch {
@@ -130,6 +153,8 @@ export async function POST(req: NextRequest) {
     erhebungsbogenUrl = body.erhebungsbogenUrl || null;
     angebotPdfUrl = body.angebotPdfUrl || null;
     fileName = body.fileName;
+    submissionId = body.submissionId || null;
+    mitarbeiterId = body.mitarbeiterId || null;
     if (body.order === 'angebot-first' || body.order === 'erhebungsbogen-first') order = body.order;
   }
 
@@ -205,13 +230,39 @@ export async function POST(req: NextRequest) {
   const out = await merged.save();
   const safeFileName = (fileName || 'Antrag.pdf').replace(/[^a-zA-Z0-9._-]+/g, '_');
 
-  return new NextResponse(Buffer.from(out), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeFileName}"`,
-      'Content-Length': String(out.byteLength),
-      'Cache-Control': 'private, no-store',
-    },
+  // Upload merged PDF to Vercel Blob and create a one-use token URL.
+  // Drive Upload in Zapier consumes a normal HTTPS URL much more reliably
+  // than the ephemeral hydrate that a binary response produces.
+  let mergedTokenUrl: string | null = null;
+  try {
+    if (!submissionId || !mitarbeiterId) {
+      console.warn('[merge-pdfs] submissionId/mitarbeiterId missing — skipping persistent storage');
+    } else {
+      await ensureTables();
+      const sql = getDb();
+      const blobPath = `submissions/${submissionId}/${mitarbeiterId}/merged.pdf`;
+      const blob = await uploadPdf(blobPath, Buffer.from(out));
+      const fileRow = await sql`
+        INSERT INTO submission_files
+          (submission_id, mitarbeiter_id, mitarbeiter_label, kind, blob_path, blob_url, file_name, size_bytes)
+        VALUES
+          (${submissionId}, ${mitarbeiterId}, ${mitarbeiterId}, 'merged', ${blob.pathname}, ${blob.url}, ${safeFileName}, ${blob.size})
+        RETURNING id::text AS id
+      `;
+      const fileId = fileRow[0].id as string;
+      const token = await createFileToken(fileId, 60 * 60); // 1h
+      const proto = req.headers.get('x-forwarded-proto') || 'https';
+      const host = req.headers.get('host') || 'localhost';
+      mergedTokenUrl = buildTokenUrl(`${proto}://${host}`, token);
+    }
+  } catch (err) {
+    console.error('[merge-pdfs] persist merged failed (non-fatal):', err);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    fileName: safeFileName,
+    sizeBytes: out.byteLength,
+    mergedUrl: mergedTokenUrl,
   });
 }

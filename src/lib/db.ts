@@ -31,13 +31,22 @@ export async function ensureTables() {
       submission_id     uuid NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
       mitarbeiter_id    text NOT NULL,
       mitarbeiter_label text NOT NULL,
-      kind              text NOT NULL CHECK (kind IN ('erhebungsbogen', 'angebot')),
+      kind              text NOT NULL CHECK (kind IN ('erhebungsbogen', 'angebot', 'merged')),
       blob_path         text NOT NULL,
       blob_url          text NOT NULL,
       file_name         text NOT NULL,
       size_bytes        int,
       created_at        timestamptz NOT NULL DEFAULT now()
     )
+  `;
+  // Migration: relax old CHECK constraint that did not include 'merged'
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE submission_files DROP CONSTRAINT IF EXISTS submission_files_kind_check;
+      ALTER TABLE submission_files ADD CONSTRAINT submission_files_kind_check
+        CHECK (kind IN ('erhebungsbogen', 'angebot', 'merged'));
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$
   `;
 
   await sql`
