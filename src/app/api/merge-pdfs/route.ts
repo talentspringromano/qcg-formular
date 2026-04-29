@@ -65,9 +65,19 @@ export async function POST(req: NextRequest) {
     const angebotPdfUrlField = form.get('angebotPdfUrl');
     if (typeof angebotPdfUrlField === 'string' && angebotPdfUrlField) angebotPdfUrl = angebotPdfUrlField;
 
-    const angebotFileField = form.get('angebotFile');
+    // Accept the file under any common key name (Zapier's "File" field has no
+    // key input — it submits the upload under different default names depending
+    // on UI version: 'file', 'angebotFile', 'attachment', etc.).
+    // Pick the first non-string entry that looks like a Blob/File.
+    let angebotFileField: FormDataEntryValue | null = null;
+    for (const [key, value] of form.entries()) {
+      void key;
+      if (value && typeof value !== 'string') {
+        angebotFileField = value;
+        break;
+      }
+    }
     if (angebotFileField && typeof angebotFileField !== 'string') {
-      // Blob/File
       const ab = await angebotFileField.arrayBuffer();
       angebotBytesFromForm = new Uint8Array(ab);
     }
