@@ -90,11 +90,26 @@ export async function POST(req: NextRequest) {
   }
 
   if (!erhebungsbogenUrl) {
-    return NextResponse.json({ error: 'erhebungsbogenUrl is required' }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: 'erhebungsbogenUrl is required',
+        debug: {
+          contentType,
+          gotErhebungsbogenUrl: erhebungsbogenUrl,
+          gotAngebotPdfUrl: angebotPdfUrl,
+          gotAngebotBytes: angebotBytesFromForm ? angebotBytesFromForm.byteLength : 0,
+          gotFileName: fileName,
+        },
+      },
+      { status: 400 },
+    );
   }
   if (!angebotPdfUrl && !angebotBytesFromForm) {
     return NextResponse.json(
-      { error: 'angebotFile (multipart) or angebotPdfUrl (json) is required' },
+      {
+        error: 'angebotFile (multipart) or angebotPdfUrl (json) is required',
+        debug: { contentType, gotErhebungsbogenUrl: erhebungsbogenUrl },
+      },
       { status: 400 },
     );
   }
