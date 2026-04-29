@@ -75,21 +75,34 @@ export async function POST(req: NextRequest) {
     const o0 = tryString('order');
     if (o0 === 'angebot-first' || o0 === 'erhebungsbogen-first') order = o0;
 
-    // Fallback: Zapier sometimes wraps all "Data" fields into one multipart part
-    // named 'data' as a JSON string when a separate File is also sent.
+    // Fallback: Zapier wraps all "Data" fields into a single multipart part
+    // named 'data' when a separate File is also sent. The wrapper is either
+    // JSON or URL-encoded query string ("a=1&b=2"). Try both.
     if (!erhebungsbogenUrl) {
       const dataField = tryString('data');
       if (dataField) {
+        let parsed: { erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string } | null = null;
         try {
-          const parsed = JSON.parse(dataField) as {
-            erhebungsbogenUrl?: string; angebotPdfUrl?: string; fileName?: string; order?: string;
-          };
+          parsed = JSON.parse(dataField);
+        } catch {
+          // not JSON — try URL-encoded
+          try {
+            const params = new URLSearchParams(dataField);
+            parsed = {
+              erhebungsbogenUrl: params.get('erhebungsbogenUrl') || undefined,
+              angebotPdfUrl: params.get('angebotPdfUrl') || undefined,
+              fileName: params.get('fileName') || undefined,
+              order: params.get('order') || undefined,
+            };
+          } catch (err) {
+            console.warn('[merge-pdfs] data field is neither JSON nor URL-encoded:', err);
+          }
+        }
+        if (parsed) {
           if (parsed.erhebungsbogenUrl) erhebungsbogenUrl = parsed.erhebungsbogenUrl;
           if (parsed.angebotPdfUrl && !angebotPdfUrl) angebotPdfUrl = parsed.angebotPdfUrl;
           if (parsed.fileName && !fileName) fileName = parsed.fileName;
           if ((parsed.order === 'angebot-first' || parsed.order === 'erhebungsbogen-first') && !order) order = parsed.order;
-        } catch (err) {
-          console.warn('[merge-pdfs] data field is not JSON:', err);
         }
       }
     }
