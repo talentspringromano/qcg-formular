@@ -74,8 +74,15 @@ export async function ensureTables() {
       expires_at       timestamptz NOT NULL,
       used_at          timestamptz,
       used_ip          text,
-      used_user_agent  text
+      used_user_agent  text,
+      single_use       boolean NOT NULL DEFAULT true
     )
+  `;
+  await sql`
+    DO $$ BEGIN
+      ALTER TABLE file_tokens ADD COLUMN IF NOT EXISTS single_use boolean NOT NULL DEFAULT true;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END $$
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_file_tokens_expires ON file_tokens(expires_at)

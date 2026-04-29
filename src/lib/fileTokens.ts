@@ -31,14 +31,15 @@ function newTokenString(): string {
 export async function createFileToken(
   fileId: string,
   ttlSec: number = DEFAULT_TTL_SEC,
+  singleUse: boolean = true,
 ): Promise<string> {
   await ensureTables();
   const sql = getDb();
   const token = newTokenString();
   const expiresAt = new Date(Date.now() + ttlSec * 1000).toISOString();
   await sql`
-    INSERT INTO file_tokens (token, file_id, expires_at)
-    VALUES (${token}, ${fileId}, ${expiresAt})
+    INSERT INTO file_tokens (token, file_id, expires_at, single_use)
+    VALUES (${token}, ${fileId}, ${expiresAt}, ${singleUse})
   `;
   return token;
 }
@@ -60,6 +61,8 @@ export async function redeemFileToken(
   await ensureTables();
   const sql = getDb();
 
+  // Atomic: mark single_use tokens as used; multi-use tokens just record last access.
+  // Both paths require expires_at > now().
   const rows = await sql`
     WITH redeemed AS (
       UPDATE file_tokens
@@ -67,8 +70,8 @@ export async function redeemFileToken(
           used_ip = ${ip},
           used_user_agent = ${userAgent}
       WHERE token = ${token}
-        AND used_at IS NULL
         AND expires_at > now()
+        AND (single_use = false OR used_at IS NULL)
       RETURNING file_id
     )
     SELECT

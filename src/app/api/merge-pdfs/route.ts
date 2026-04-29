@@ -250,7 +250,9 @@ export async function POST(req: NextRequest) {
         RETURNING id::text AS id
       `;
       const fileId = fileRow[0].id as string;
-      const token = await createFileToken(fileId, 60 * 60); // 1h
+      // Multi-use token (1h) — Drive Upload may fetch the URL more than once
+      // (preview + actual upload). Token still stops being valid after 1h.
+      const token = await createFileToken(fileId, 60 * 60, false);
       const proto = req.headers.get('x-forwarded-proto') || 'https';
       const host = req.headers.get('host') || 'localhost';
       mergedTokenUrl = buildTokenUrl(`${proto}://${host}`, token);
