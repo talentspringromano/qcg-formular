@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ submissionI
   if (subRows.length === 0) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
 
   const files = await sql`
-    SELECT id, mitarbeiter_label, kind, blob_url, file_name
+    SELECT id, mitarbeiter_label, kind, blob_path, file_name
     FROM submission_files
     WHERE submission_id = ${submissionId}
     ORDER BY mitarbeiter_label, kind
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ submissionI
     try {
       for (const f of files) {
         const safeFolder = (f.mitarbeiter_label as string).replace(/[^a-zA-Z0-9_-]+/g, '_') || 'Mitarbeiter';
-        const buffer = await fetchBlobBuffer(f.blob_url as string);
+        const buffer = await fetchBlobBuffer(f.blob_path as string);
         archive.append(buffer, { name: `${safeFolder}/${f.file_name}` });
       }
       await archive.finalize();

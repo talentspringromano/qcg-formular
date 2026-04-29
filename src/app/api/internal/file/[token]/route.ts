@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redeemFileToken } from '@/lib/fileTokens';
+import { getPrivateBlobStream } from '@/lib/storage';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -18,15 +19,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   const file = await redeemFileToken(token, ip, userAgent);
   if (!file) return NOT_FOUND;
 
-  // Backend proxy: fetch the blob server-side and stream to the client.
-  // Vercel Blob URL never leaves our origin.
-  const blobRes = await fetch(file.blobUrl);
-  if (!blobRes.ok || !blobRes.body) {
-    console.error('[internal-file] blob fetch failed', { status: blobRes.status, blobPath: file.blobPath });
+  // Backend proxy: fetch the private blob server-side via the SDK (auth via
+  // BLOB_READ_WRITE_TOKEN), then stream to the client. The Blob URL never
+  // leaves our origin and is unusable without our token.
+  let stream: ReadableStream<Uint8Array>;
+  try {
+    stream = await getPrivateBlobStream(file.blobPath);
+  } catch (err) {
+    console.error('[internal-file] blob fetch failed', { blobPath: file.blobPath, err });
     return NextResponse.json({ error: 'Datei nicht abrufbar' }, { status: 502 });
   }
 
-  return new NextResponse(blobRes.body, {
+  return new NextResponse(stream, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

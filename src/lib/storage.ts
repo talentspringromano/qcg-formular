@@ -1,4 +1,4 @@
-import { put, del, list } from '@vercel/blob';
+import { put, del, list, get } from '@vercel/blob';
 
 export type UploadedBlob = {
   url: string;
@@ -9,7 +9,7 @@ export type UploadedBlob = {
 export async function uploadPdf(path: string, buffer: Buffer | Uint8Array): Promise<UploadedBlob> {
   const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
   const blob = await put(path, buf, {
-    access: 'public',
+    access: 'private',
     contentType: 'application/pdf',
     addRandomSuffix: true,
     token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -33,13 +33,42 @@ export async function listBlobsUnderPrefix(prefix: string) {
   return list({ prefix, token: process.env.BLOB_READ_WRITE_TOKEN });
 }
 
-export async function fetchBlobBuffer(url: string): Promise<Buffer> {
-  const res = await fetch(url, {
-    headers: process.env.BLOB_READ_WRITE_TOKEN
-      ? { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` }
-      : {},
+/**
+ * Returns a ReadableStream of the blob bytes for a private blob.
+ * Caller must consume the stream.
+ */
+export async function getPrivateBlobStream(urlOrPathname: string): Promise<ReadableStream<Uint8Array>> {
+  const result = await get(urlOrPathname, {
+    access: 'private',
+    token: process.env.BLOB_READ_WRITE_TOKEN,
   });
-  if (!res.ok) throw new Error(`Blob fetch failed: ${res.status}`);
-  const ab = await res.arrayBuffer();
-  return Buffer.from(ab);
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error('Blob not found or unreadable');
+  }
+  return result.stream;
+}
+
+export async function fetchBlobBuffer(urlOrPathname: string): Promise<Buffer> {
+  const result = await get(urlOrPathname, {
+    access: 'private',
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+  });
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error('Blob not found or unreadable');
+  }
+  const reader = result.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((acc, c) => acc + c.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return Buffer.from(out);
 }

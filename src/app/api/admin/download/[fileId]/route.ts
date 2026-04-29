@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureTables, getDb } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
+import { getPrivateBlobStream } from '@/lib/storage';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ fileId: str
   const sql = getDb();
 
   const rows = await sql`
-    SELECT id, submission_id, kind, blob_url, file_name
+    SELECT id, submission_id, kind, blob_path, file_name
     FROM submission_files
     WHERE id = ${fileId}
     LIMIT 1
@@ -32,14 +33,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ fileId: str
     VALUES (${file.id}, ${file.submission_id}, ${file.kind}, ${auth.email}, ${ip})
   `;
 
-  // Vercel Blob URLs are public-by-suffix. Stream the bytes through our route so the
-  // client never sees the underlying blob host (extra opacity for Marketing-shareable site).
-  const blobRes = await fetch(file.blob_url as string);
-  if (!blobRes.ok || !blobRes.body) {
+  let stream: ReadableStream<Uint8Array>;
+  try {
+    stream = await getPrivateBlobStream(file.blob_path as string);
+  } catch (err) {
+    console.error('[admin-download] blob fetch failed', { blobPath: file.blob_path, err });
     return NextResponse.json({ error: 'Datei nicht abrufbar' }, { status: 502 });
   }
 
-  return new NextResponse(blobRes.body, {
+  return new NextResponse(stream, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
