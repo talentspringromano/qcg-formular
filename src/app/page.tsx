@@ -590,7 +590,6 @@ type ParsedCv = {
 export default function Home() {
   const [app, setApp] = useState<AppData>(() => defaultAppData());
   const [activeId, setActiveId] = useState<string>(() => app.mitarbeiter[0].id);
-  const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [cvParseStatus, setCvParseStatus] = useState<Record<string, { status: CvParseStatus; error?: string }>>({});
   const [activeSection, setActiveSection] = useState<Record<number, number>>({ 0: 0, 1: 0, 2: 0, 3: 0 });
@@ -823,28 +822,34 @@ export default function Home() {
     }
   };
 
-  const generatePdf = async () => {
-    setLoading(true);
+  const [submitState, setSubmitState] = useState<
+    | { kind: 'idle' }
+    | { kind: 'submitting' }
+    | { kind: 'done'; submissionId: string; downloadUrl: string | null }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' });
+
+  const submitForm = async () => {
+    setSubmitState({ kind: 'submitting' });
     try {
-      const payload = { ...betrieb, ...data };
-      const res = await fetch('/api/generate-pdf', {
+      const res = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(app),
       });
-      if (!res.ok) throw new Error('PDF-Generierung fehlgeschlagen');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `QCG-Erhebungsbogen_${data.nachname || mitarbeiterLabel(data, activeIndex)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setSubmitState({ kind: 'error', message: json.error || 'Übermittlung fehlgeschlagen' });
+        return;
+      }
+      setSubmitState({
+        kind: 'done',
+        submissionId: json.submissionId,
+        downloadUrl: json.customerDownload?.url || null,
+      });
     } catch (err) {
-      alert('Fehler bei der PDF-Generierung. Bitte versuchen Sie es erneut.');
       console.error(err);
-    } finally {
-      setLoading(false);
+      setSubmitState({ kind: 'error', message: 'Netzwerkfehler' });
     }
   };
 
@@ -869,6 +874,32 @@ export default function Home() {
         </div>
       </div>
 
+      {submitState.kind === 'done' ? (
+        <section className="max-w-[640px] mx-auto px-6 pt-20 pb-20 text-center">
+          <div className="qcg-card p-10">
+            <div className="w-16 h-16 rounded-full bg-mint-200 text-green-800 flex items-center justify-center mx-auto mb-6 text-3xl">✓</div>
+            <h1 className="font-serif font-normal text-[clamp(28px,4vw,42px)] leading-[1.1] tracking-[-0.02em] text-ink mb-3">
+              Antrag erfolgreich <em className="not-italic font-serif italic text-green-700">übermittelt</em>
+            </h1>
+            <p className="text-ink-soft text-[16px] leading-[1.6] mb-6">
+              Wir haben deine Daten erhalten und melden uns innerhalb von 24 Stunden bei dir.
+            </p>
+            {submitState.downloadUrl && (
+              <a
+                href={submitState.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="qcg-btn-ghost"
+                download
+              >
+                Erhebungsbogen als PDF herunterladen
+              </a>
+            )}
+            <p className="text-xs text-ink-mute mt-6">Referenz-ID: {submitState.submissionId}</p>
+          </div>
+        </section>
+      ) : (
+      <>
       {/* Hero */}
       <section className="max-w-[880px] mx-auto px-6 pt-16 pb-10 text-center">
         <span className="inline-flex items-center gap-2 bg-mint-200 text-green-900 rounded-full px-4 py-2 text-sm font-medium mb-7 before:content-['✓'] before:font-bold">
@@ -1643,39 +1674,39 @@ export default function Home() {
                 Weiter →
               </button>
             ) : (
-              <div className="flex items-center gap-2">
-                {app.mitarbeiter.length > 1 && (
-                  <button
-                    type="button"
-                    disabled
-                    title="kommt später"
-                    className="qcg-btn-ghost"
-                  >
-                    Alle als ZIP ({app.mitarbeiter.length})
-                  </button>
-                )}
+              <div className="flex flex-col items-end gap-1.5">
                 <button
-                  onClick={generatePdf}
-                  disabled={loading}
+                  onClick={submitForm}
+                  disabled={submitState.kind === 'submitting'}
                   className="qcg-submit"
                 >
-                  {loading ? (
+                  {submitState.kind === 'submitting' ? (
                     <>
                       <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      PDF wird erstellt…
+                      Wird gesendet…
                     </>
                   ) : (
-                    <>PDF: {mitarbeiterLabel(data, activeIndex)} →</>
+                    <>Antrag absenden →</>
                   )}
                 </button>
+                {submitState.kind === 'error' && (
+                  <p className="text-xs text-red-700">{submitState.message}</p>
+                )}
+                {app.mitarbeiter.length > 1 && submitState.kind === 'idle' && (
+                  <p className="text-xs text-ink-mute">
+                    Wir generieren pro Mitarbeiter ein Dokument ({app.mitarbeiter.length} insgesamt).
+                  </p>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
