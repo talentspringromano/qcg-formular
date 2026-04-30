@@ -825,7 +825,7 @@ export default function Home() {
   const [submitState, setSubmitState] = useState<
     | { kind: 'idle' }
     | { kind: 'submitting' }
-    | { kind: 'done'; submissionId: string; downloadUrl: string | null }
+    | { kind: 'done'; submissionId: string }
     | { kind: 'error'; message: string }
   >({ kind: 'idle' });
 
@@ -845,7 +845,6 @@ export default function Home() {
       setSubmitState({
         kind: 'done',
         submissionId: json.submissionId,
-        downloadUrl: json.customerDownload?.url || null,
       });
     } catch (err) {
       console.error(err);
@@ -884,17 +883,6 @@ export default function Home() {
             <p className="text-ink-soft text-[16px] leading-[1.6] mb-6">
               Wir haben deine Daten erhalten und melden uns innerhalb von 24 Stunden bei dir.
             </p>
-            {submitState.downloadUrl && (
-              <a
-                href={submitState.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="qcg-btn-ghost"
-                download
-              >
-                Erhebungsbogen als PDF herunterladen
-              </a>
-            )}
             <p className="text-xs text-ink-mute mt-6">Referenz-ID: {submitState.submissionId}</p>
           </div>
         </section>

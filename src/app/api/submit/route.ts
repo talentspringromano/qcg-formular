@@ -135,8 +135,6 @@ export async function POST(req: NextRequest) {
   const angebotsdatum = fmtDate();
 
   // Per-Mitarbeiter: render Erhebungsbogen, upload, insert file row, mint token, fire Zapier webhook
-  let firstCustomerTokenUrl: string | null = null;
-
   for (let i = 0; i < mitarbeiter.length; i++) {
     const m = mitarbeiter[i];
     const label = mitarbeiterLabel(m, i);
@@ -179,12 +177,6 @@ export async function POST(req: NextRequest) {
     // Token for Zapier (1-use, 1h TTL).
     const zapierToken = await createFileToken(fileId, 60 * 60);
     const erhebungsbogenUrlForZapier = buildTokenUrl(origin, zapierToken);
-
-    // Token for the customer's "download my own form" link on the success page.
-    if (i === 0) {
-      const customerToken = await createFileToken(fileId, 30 * 60);
-      firstCustomerTokenUrl = buildTokenUrl(origin, customerToken);
-    }
 
     // Build per-Mitarbeiter Zapier payload (the customer's full data + a fetchable URL for the Erhebungsbogen)
     const v = m.vertical ? (m.vertical as Vertical) : null;
@@ -256,6 +248,5 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     submissionId,
-    customerDownload: firstCustomerTokenUrl ? { url: firstCustomerTokenUrl } : null,
   });
 }

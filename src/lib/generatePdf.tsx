@@ -250,7 +250,7 @@ export function QCGDocument({ data }: { data: FormData }) {
 
           <View style={styles.row}>
             <Text style={[styles.label, { width: '22%' }]}>Staatsangehörigkeit:</Text>
-            <Text style={[styles.value, { width: '28%' }]}>{data.staatsangehoerigkeit}</Text>
+            <Text style={[styles.value, { width: '28%' }]}>{Array.isArray(data.staatsangehoerigkeit) ? data.staatsangehoerigkeit.join(', ') : data.staatsangehoerigkeit}</Text>
             <Text style={[styles.label, { width: '16%' }]}>Grenzgänger:</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Checkbox checked={data.grenzgaenger === 'ja'} label="ja" />
