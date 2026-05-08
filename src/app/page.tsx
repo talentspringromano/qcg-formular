@@ -587,6 +587,97 @@ type ParsedCv = {
   werdegang?: { vonBis: string; arbeitgeber: string; taetigkeitAls: string }[];
 };
 
+type ValidationIssue = {
+  step: number;
+  section: number;
+  label: string;
+  mitarbeiterId?: string;
+  mitarbeiterIndex?: number;
+};
+
+function validateApp(app: AppData): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const b = app.betrieb;
+  const addBetrieb = (label: string) => issues.push({ step: 0, section: 0, label });
+
+  if (!b.firma.trim()) addBetrieb('Firma');
+  if (!b.branche.trim()) addBetrieb('Branche');
+  if (!b.firmaAnschrift.trim()) addBetrieb('Anschrift');
+  if (!b.ansprechpartner.trim()) addBetrieb('Ansprechpartner');
+  if (!b.firmaTelefon.trim()) addBetrieb('Telefon (Betrieb)');
+  if (!b.anzahlMitarbeiter.trim()) addBetrieb('Anzahl SV-pflichtige Mitarbeiter');
+  if (!b.betriebsNr.trim()) addBetrieb('Betriebs-Nr.');
+
+  app.mitarbeiter.forEach((m, idx) => {
+    const add = (step: number, section: number, label: string) =>
+      issues.push({ step, section, label, mitarbeiterId: m.id, mitarbeiterIndex: idx });
+
+    // 2.1 Stammdaten
+    if (!m.nachname.trim()) add(1, 0, 'Nachname');
+    if (!m.vorname.trim()) add(1, 0, 'Vorname');
+    if (!m.geschlecht) add(1, 0, 'Geschlecht');
+    if (!m.geburtsdatum) add(1, 0, 'Geburtsdatum');
+    if (!m.geburtsort.trim()) add(1, 0, 'Geburtsort');
+    if (!m.familienstand) add(1, 0, 'Familienstand');
+
+    // 2.2 Adresse
+    if (!m.plzWohnort.trim()) add(1, 1, 'PLZ / Wohnort');
+    if (!m.strHausNr.trim()) add(1, 1, 'Straße / Haus-Nr.');
+    if (!m.telefon.trim() && !m.handy.trim()) add(1, 1, 'Telefon oder Handy');
+    if (!m.rentenSvNr.trim()) add(1, 1, 'Renten-/SV-Nr.');
+
+    // 2.3 Staat / Aufenthalt / Behinderung
+    if (m.staatsangehoerigkeit.length === 0) add(1, 2, 'Staatsangehörigkeit');
+    if (!m.grenzgaenger) add(1, 2, 'Grenzgänger ja/nein');
+    if (!m.behinderungVor) add(1, 2, 'Behinderung ja/nein');
+    if (m.behinderungVor === 'ja' && !m.gradBehinderung) add(1, 2, 'Grad der Behinderung');
+
+    const isNonGerman = m.staatsangehoerigkeit.length > 0 && !m.staatsangehoerigkeit.includes('deutsch');
+    if (isNonGerman) {
+      if (!m.aufenthaltsstatus) add(1, 2, 'Aufenthaltsstatus');
+      if (!m.arbeitsmarktzugang) add(1, 2, 'Arbeitsmarktzugang');
+      if (m.arbeitsmarktzugang === 'befristet' && !m.arbeitsmarktzugangBis) add(1, 2, 'Arbeitsmarktzugang befristet bis');
+    }
+    if (!m.arbeitsverhaeltnis) add(1, 2, 'Bestätigung Arbeitsverhältnis');
+
+    // 2.4 Beschäftigung
+    if (!m.befristet) add(1, 3, 'Befristete Beschäftigung ja/nein');
+    if (m.befristet === 'ja' && !m.befristetBis) add(1, 3, 'Befristet bis');
+    if (!m.beschaeftigungAls.trim()) add(1, 3, 'Beschäftigung als');
+    if (!m.helferebene) add(1, 3, 'Helferebene ja/nein');
+    if (!m.svPflichtig) add(1, 3, 'SV-pflichtige Beschäftigung ja/nein');
+    if (!m.kurzarbeitergeld) add(1, 3, 'Kurzarbeitergeld ja/nein');
+    if (m.kurzarbeitergeld === 'ja' && !m.kurzarbeitergeldAb) add(1, 3, 'Kurzarbeitergeld ab');
+    if (!m.transferKurzarbeitergeld) add(1, 3, 'Transfer-Kurzarbeitergeld ja/nein');
+    if (m.transferKurzarbeitergeld === 'ja' && !m.transferKurzarbeitergeldAb) add(1, 3, 'Transfer-KuG ab');
+
+    // 3.2 Schulbildung
+    if (!m.schulbildung) add(2, 1, 'Höchster Schulabschluss');
+
+    // 3.4 Werdegang — mind. 1 Eintrag
+    const hasWerdegang = m.werdegang.some((w) => w.vonBis.trim() || w.arbeitgeber.trim() || w.taetigkeitAls.trim());
+    if (!hasWerdegang) add(2, 3, 'Mindestens 1 Eintrag im Werdegang');
+
+    // 4.1 Qualifizierung
+    if (!m.zeitmodell) add(3, 0, 'Format (Vollzeit/Teilzeit)');
+    if (!m.vertical) add(3, 0, 'Schwerpunkt (Vertical)');
+    if (m.vertical && m.selectedModules.length === 0) {
+      add(3, 0, 'Modulauswahl');
+    } else if (m.vertical && !isValidCombo(m.vertical, m.selectedModules)) {
+      add(3, 0, 'Gültige Modul-Kombination');
+    }
+
+    // 4.2 Notwendigkeit & Bezug
+    if (m.notwendigkeit.length === 0) add(3, 1, 'Mindestens eine Notwendigkeit');
+    if (m.bezug.length === 0) add(3, 1, 'Mindestens ein Bezug');
+
+    // 4.3 Begründung
+    if (!m.begruendung.trim()) add(3, 2, 'Begründung der Fördernotwendigkeit');
+  });
+
+  return issues;
+}
+
 export default function Home() {
   const [app, setApp] = useState<AppData>(() => defaultAppData());
   const [activeId, setActiveId] = useState<string>(() => app.mitarbeiter[0].id);
@@ -850,8 +941,25 @@ export default function Home() {
     | { kind: 'done'; submissionId: string }
     | { kind: 'error'; message: string }
   >({ kind: 'idle' });
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
+
+  const jumpToIssue = (issue: ValidationIssue) => {
+    if (issue.mitarbeiterId) setActiveId(issue.mitarbeiterId);
+    setStep(issue.step);
+    if (issue.step > 0) {
+      setActiveSection((s) => ({ ...s, [issue.step]: issue.section }));
+    }
+  };
 
   const submitForm = async () => {
+    const issues = validateApp(app);
+    if (issues.length > 0) {
+      setValidationIssues(issues);
+      setSubmitState({ kind: 'idle' });
+      jumpToIssue(issues[0]);
+      return;
+    }
+    setValidationIssues([]);
     setSubmitState({ kind: 'submitting' });
     try {
       const res = await fetch('/api/submit', {
@@ -1744,7 +1852,7 @@ export default function Home() {
                 {submitState.kind === 'error' && (
                   <p className="text-xs text-red-700">{submitState.message}</p>
                 )}
-                {app.mitarbeiter.length > 1 && submitState.kind === 'idle' && (
+                {app.mitarbeiter.length > 1 && submitState.kind === 'idle' && validationIssues.length === 0 && (
                   <p className="text-xs text-ink-mute">
                     Wir generieren pro Mitarbeiter ein Dokument ({app.mitarbeiter.length} insgesamt).
                   </p>
@@ -1752,6 +1860,70 @@ export default function Home() {
               </div>
             )}
           </div>
+
+          {validationIssues.length > 0 && submitState.kind !== 'submitting' && (
+            <div className="mt-6 p-5 rounded-[14px] border border-red-200 bg-red-50">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <p className="font-semibold text-red-800 text-sm">
+                    Bitte ergänze noch {validationIssues.length} {validationIssues.length === 1 ? 'Pflichtangabe' : 'Pflichtangaben'}, bevor du absendest:
+                  </p>
+                  <p className="text-xs text-red-700/80 mt-0.5">Klicke auf einen Eintrag, um direkt zum fehlenden Feld zu springen.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setValidationIssues([])}
+                  className="text-xs text-red-700 hover:text-red-900 shrink-0"
+                  aria-label="Hinweis schließen"
+                >
+                  ✕
+                </button>
+              </div>
+              <ul className="space-y-3">
+                {(() => {
+                  type Group = { key: string; title: string; issues: ValidationIssue[] };
+                  const groups: Group[] = [];
+                  validationIssues.forEach((iss) => {
+                    const isBetrieb = iss.mitarbeiterId === undefined;
+                    const key = isBetrieb ? 'betrieb' : `m_${iss.mitarbeiterId}`;
+                    let g = groups.find((x) => x.key === key);
+                    if (!g) {
+                      const title = isBetrieb
+                        ? 'Betrieb'
+                        : mitarbeiterLabel(
+                            app.mitarbeiter[iss.mitarbeiterIndex ?? 0],
+                            iss.mitarbeiterIndex ?? 0,
+                          );
+                      g = { key, title, issues: [] };
+                      groups.push(g);
+                    }
+                    g.issues.push(iss);
+                  });
+                  const stepLabel = ['Betrieb', 'Persönliche Daten', 'Bildung & Werdegang', 'Qualifizierung'];
+                  return groups.map((g) => (
+                    <li key={g.key}>
+                      <p className="text-xs uppercase tracking-[0.08em] font-semibold text-red-800 mb-1.5">{g.title}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {g.issues.map((iss, i) => (
+                          <button
+                            key={`${iss.step}_${iss.section}_${iss.label}_${i}`}
+                            type="button"
+                            onClick={() => jumpToIssue(iss)}
+                            className="inline-flex items-center gap-1.5 bg-white border border-red-200 hover:border-red-400 hover:bg-red-100/50 text-red-800 rounded-full px-3 py-1 text-xs transition-colors"
+                          >
+                            <span className="text-[10px] text-red-700/70">{stepLabel[iss.step]}</span>
+                            <span className="text-red-300">·</span>
+                            <span className="font-medium">{iss.label}</span>
+                            <span className="text-red-700/60">→</span>
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  ));
+                })()}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
       </>
