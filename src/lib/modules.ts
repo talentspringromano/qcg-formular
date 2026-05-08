@@ -23,8 +23,8 @@ export const VERTICALS: VerticalDef[] = [
     key: 'marketing',
     label: 'Marketing Academy',
     modules: [
-      { id: 'MKT1', code: 'MKT 1', name: 'Paid & Conversion', ue: 375, tzWochen: 15, vzWochen: 7.5, preis: 6952.5 },
-      { id: 'MKT2', code: 'MKT 2', name: 'E-Commerce & Content', ue: 375, tzWochen: 15, vzWochen: 7.5, preis: 6952.5 },
+      { id: 'MKT1', code: 'MKT 1', name: 'Paid & Conversion', ue: 375, tzWochen: 15, vzWochen: 8, preis: 6952.5 },
+      { id: 'MKT2', code: 'MKT 2', name: 'E-Commerce & Content', ue: 375, tzWochen: 7, vzWochen: 7, preis: 6952.5 },
       { id: 'MKT3', code: 'MKT 3', name: 'Analytics, PM & Automation', ue: 350, tzWochen: 14, vzWochen: 7, preis: 6489.0 },
     ],
     validCombos: [
