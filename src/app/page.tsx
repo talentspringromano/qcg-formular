@@ -788,6 +788,25 @@ export default function Home() {
         })
         .filter((n): n is string => !!n);
 
+      const schulbildungLabel = data.schulbildung
+        ? schulbildungOptions.find((o) => o.value === data.schulbildung)?.label
+        : undefined;
+      const ausbildungen = data.ausbildungen
+        .filter((a) => a.vonBis || a.ausbildungsstaette || a.ausbildungAls)
+        .map((a) => ({
+          vonBis: a.vonBis,
+          ausbildungsstaette: a.ausbildungsstaette,
+          ausbildungAls: a.ausbildungAls,
+          abschluss: a.abschluss,
+        }));
+      const werdegang = data.werdegang
+        .filter((w) => w.vonBis || w.arbeitgeber || w.taetigkeitAls)
+        .map((w) => ({
+          vonBis: w.vonBis,
+          arbeitgeber: w.arbeitgeber,
+          taetigkeitAls: w.taetigkeitAls,
+        }));
+
       const res = await fetch('/api/generate-begruendung', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -806,6 +825,9 @@ export default function Home() {
           nachname: data.nachname,
           beschaeftigungAls: data.beschaeftigungAls,
           branche: betrieb.branche,
+          schulbildung: schulbildungLabel,
+          ausbildungen,
+          werdegang,
         }),
       });
       const json = await res.json();
