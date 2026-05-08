@@ -55,9 +55,9 @@ export const VERTICALS: VerticalDef[] = [
     modules: [
       { id: 'KI1', code: 'KI 1', name: 'KI Grundlagen', ue: 350, tzWochen: 14, vzWochen: 7, preis: 6489.0, pflicht: true },
       { id: 'KI2a', code: 'KI 2a', name: 'KI-Marketing – Content & Prompting', ue: 250, tzWochen: 10, vzWochen: 5, preis: 4635.0 },
-      { id: 'KI2b', code: 'KI 2b', name: 'KI-Marketing – Automation & Praxis', ue: 275, tzWochen: 11, vzWochen: 5.5, preis: 5098.5 },
+      { id: 'KI2b', code: 'KI 2b', name: 'KI-Marketing – Automation & Praxis', ue: 275, tzWochen: 11, vzWochen: 5, preis: 5098.5 },
       { id: 'KI3a', code: 'KI 3a', name: 'KI-Vertrieb – Prospecting & Discovery', ue: 250, tzWochen: 10, vzWochen: 5, preis: 4635.0 },
-      { id: 'KI3b', code: 'KI 3b', name: 'KI-Vertrieb – Automation & Praxis', ue: 275, tzWochen: 11, vzWochen: 5.5, preis: 5098.5 },
+      { id: 'KI3b', code: 'KI 3b', name: 'KI-Vertrieb – Automation & Praxis', ue: 275, tzWochen: 11, vzWochen: 5, preis: 5098.5 },
     ],
     validCombos: [
       ['KI1'],
